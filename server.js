@@ -46,42 +46,38 @@
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const express = require('express');
-const salesRouter = require('./src/salesR'); // Import router API (salesR.js)
+const cors = require('cors'); 
+// KOREKSI PATH: Menggunakan './src/salesR' karena file berada di folder 'src'
+const salesRouter = require('./src/salesR'); 
 const app = express();
-// CATATAN PENTING: PORT TIDAK DIDEFINISIKAN KARENA VERCEL MENANGANI LISTENING PORT.
-const cors = require('cors'); // Tambahkan CORS untuk akses dari frontend manapun
 
 // ====================================================================
-// --- Middleware (CORS & JSON Parser) ---
+// --- Middleware ---
 // ====================================================================
-app.use(cors()); // Izinkan semua domain untuk mengakses API
+app.use(cors()); 
 app.use(express.json());
 
 // ====================================================================
 // --- Root Route ---
-// Memberikan daftar endpoint yang tersedia
 // ====================================================================
 app.get('/', (req, res) => {
     res.json({
-        message: 'Selamat datang di API Manajemen Inventaris Herbal! (Deployed on Vercel)',
+        message: 'Selamat datang di API Manajemen Inventaris Herbal! (Siap di Vercel)',
         endpoints: {
             Produk: 'GET /api/produk',
             Penjualan: 'POST /api/penjualan',
             Pembelian: 'POST /api/pembelian',
             Laporan: 'GET /api/laporan/laba-kotor'
-        },
-        catatan: "Gunakan endpoint API di atas untuk berinteraksi dengan data."
+        }
     });
 });
 
 // ====================================================================
 // --- Koneksi Router API ---
-// Semua endpoint API akan diawali dengan /api
 // ====================================================================
 app.use('/api', salesRouter);
 
 // ====================================================================
-// --- Eksport Aplikasi untuk Vercel (PENTING!) ---
-// Vercel menjalankan fungsi ini untuk setiap permintaan, BUKAN app.listen()
+// --- Eksport Aplikasi untuk Vercel ---
 // ====================================================================
-module.exports = app;
+module.exports = app; 
