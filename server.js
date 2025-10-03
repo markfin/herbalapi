@@ -46,7 +46,7 @@
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const express = require('express');
-const salesRouter = require('./salesR'); // Import router API (salesR.js)
+const salesRouter = require('./src/salesR'); // Import router API (salesR.js)
 const app = express();
 // CATATAN PENTING: PORT TIDAK DIDEFINISIKAN KARENA VERCEL MENANGANI LISTENING PORT.
 const cors = require('cors'); // Tambahkan CORS untuk akses dari frontend manapun
