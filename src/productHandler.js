@@ -1,15 +1,14 @@
-// src/productHandler.js - Menggunakan Mongoose Models
+// src/productHandler.js - Menggunakan Mongoose Models (ESM)
 
-// --- Ganti import dari 'db' lama menjadi Mongoose Models ---
-const { Product, Sale, Purchase, findProduct, MIN_STOCK_ALERT } = require('./db'); 
-const { v4: uuidv4 } = require('uuid');
+// --- Menggunakan import ESM, harus menyertakan .js ---
+import { Product, Sale, Purchase, MIN_STOCK_ALERT } from './db.js'; 
+import { v4 as uuidv4 } from 'uuid'; // Menggunakan import untuk uuid
 
 // --- Helper untuk Laporan (Diubah menjadi Async) ---
 const calculateLabaKotor = async () => {
     let totalPendapatanKotor = 0;
     let totalHPP = 0;
 
-    // Ambil semua data penjualan dari MongoDB
     const allSales = await Sale.find({});
 
     for (const sale of allSales) {
@@ -31,18 +30,16 @@ const calculateLabaKotor = async () => {
 };
 
 // ====================================================================
-// A. Handlers Produk (CRUD)
+// A. Handlers Produk (CRUD) - Menggunakan export const
 // ====================================================================
 
-exports.getAllProducts = async (req, res) => {
+export const getAllProducts = async (req, res) => {
     const filter = {};
     
     if (req.query.stok_min) {
-        // Menggunakan operator $gte (Greater Than or Equal)
         filter.stok = { $gte: parseInt(req.query.stok_min) };
     }
     
-    // Pencarian berdasarkan nama produk (menggunakan $regex untuk case-insensitive)
     if (req.query.search) {
         filter.nama_produk = { $regex: req.query.search, $options: 'i' }; 
     }
@@ -51,20 +48,18 @@ exports.getAllProducts = async (req, res) => {
     res.json({ data: filteredProduk });
 };
 
-exports.getProductById = async (req, res) => {
-    // Mencari berdasarkan id_produk custom
+export const getProductById = async (req, res) => {
     const product = await Product.findOne({ id_produk: req.params.id }); 
     if (!product) return res.status(404).json({ message: 'Produk tidak ditemukan.' });
     res.json({ data: product });
 };
 
-exports.getLowStockProducts = async (req, res) => {
-    // Menggunakan operator $lt (Less Than)
+export const getLowStockProducts = async (req, res) => {
     const lowStock = await Product.find({ stok: { $lt: MIN_STOCK_ALERT } }); 
     res.json({ data: lowStock, message: `Daftar produk dengan stok di bawah ${MIN_STOCK_ALERT}.` });
 };
 
-exports.createProduct = async (req, res) => {
+export const createProduct = async (req, res) => {
     const { nama_produk, deskripsi, harga_jual, harga_beli, stok, satuan, kadaluarsa } = req.body;
 
     if (!nama_produk || !harga_jual || stok === undefined) {
@@ -72,7 +67,7 @@ exports.createProduct = async (req, res) => {
     }
 
     const newProductData = {
-        id_produk: uuidv4(), // Tetap menggunakan uuidv4 untuk id_produk custom
+        id_produk: uuidv4(), 
         nama_produk,
         deskripsi: deskripsi || '',
         harga_jual: Number(harga_jual),
@@ -83,10 +78,9 @@ exports.createProduct = async (req, res) => {
     };
 
     try {
-        const newProduct = await Product.create(newProductData); // Menggunakan Mongoose Model.create()
+        const newProduct = await Product.create(newProductData); 
         res.status(201).json({ message: 'Produk berhasil ditambahkan.', data: newProduct });
     } catch (error) {
-        // Handle error jika id_produk duplikat (Error code 11000)
         if (error.code === 11000) { 
             return res.status(400).json({ message: 'ID Produk duplikat terdeteksi.' });
         }
@@ -94,12 +88,11 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-exports.updateProduct = async (req, res) => {
-    // Menggunakan findOneAndUpdate untuk mencari dan memperbarui dalam satu operasi
+export const updateProduct = async (req, res) => {
     const updatedProduct = await Product.findOneAndUpdate(
         { id_produk: req.params.id }, 
-        { $set: req.body }, // $set untuk memperbarui field yang dikirim
-        { new: true, runValidators: true } // new: true mengembalikan dokumen yang sudah diperbarui
+        { $set: req.body }, 
+        { new: true, runValidators: true } 
     );
     
     if (!updatedProduct) return res.status(404).json({ message: 'Produk tidak ditemukan.' });
@@ -108,18 +101,17 @@ exports.updateProduct = async (req, res) => {
 };
 
 // ====================================================================
-// B. Handlers Penjualan (Stok Otomatis Keluar)
+// B. Handlers Penjualan
 // ====================================================================
 
-exports.createSale = async (req, res) => {
+export const createSale = async (req, res) => {
     const { id_pelanggan, detail_item, metode_pembayaran } = req.body;
     let totalHarga = 0;
     let stockErrors = [];
     let saleDetails = [];
 
-    // --- 1. Validasi Stok (Semua atau Tidak Sama Sekali) ---
+    // --- 1. Validasi Stok ---
     for (const item of detail_item) {
-        // Harus menggunakan await untuk mencari produk
         const product = await Product.findOne({ id_produk: item.id_produk }); 
         const kuantitas = Number(item.kuantitas);
 
@@ -137,7 +129,6 @@ exports.createSale = async (req, res) => {
     // --- 2. Proses Penjualan dan Pengurangan Stok Atomik ---
     try {
         for (const item of detail_item) {
-            // Find product lagi, atau langsung update
             const product = await Product.findOne({ id_produk: item.id_produk });
             const kuantitas = Number(item.kuantitas);
             const hargaJual = product.harga_jual;
@@ -145,10 +136,10 @@ exports.createSale = async (req, res) => {
 
             totalHarga += subtotal;
             
-            // **Pengurangan Stok Otomatis menggunakan Mongoose $inc (Atomic)**
+            // Pengurangan Stok Otomatis menggunakan Mongoose $inc
             await Product.updateOne(
                 { id_produk: item.id_produk },
-                { $inc: { stok: -kuantitas } } // Mengurangi stok secara aman
+                { $inc: { stok: -kuantitas } } 
             );
 
             saleDetails.push({ id_produk: item.id_produk, kuantitas, harga_per_unit: hargaJual, subtotal });
@@ -157,7 +148,7 @@ exports.createSale = async (req, res) => {
         // --- 3. Mencatat Transaksi Penjualan ---
         const newSaleData = {
             id_penjualan: uuidv4(),
-            tanggal_penjualan: new Date(), // Mongoose akan mengurus konversi Date
+            tanggal_penjualan: new Date(), 
             id_pelanggan: id_pelanggan || 'CUST-001 (Default)',
             total_harga: totalHarga,
             status_pembayaran: 'Lunas',
@@ -165,28 +156,27 @@ exports.createSale = async (req, res) => {
             detail_item: saleDetails
         };
 
-        const newSale = await Sale.create(newSaleData); // Mongoose create Sale
+        const newSale = await Sale.create(newSaleData); 
 
         return res.status(201).json({ message: 'Penjualan berhasil dicatat dan stok diperbarui.', data: newSale });
 
     } catch (error) {
         console.error("Sale transaction failed:", error);
-        // Error handling yang lebih baik diperlukan di sini, tetapi ini cukup untuk dasar
         return res.status(500).json({ message: 'Terjadi kesalahan pada transaksi penjualan. Transaksi gagal dicatat.', error: error.message });
     }
 };
 
-exports.getAllSales = async (req, res) => {
+export const getAllSales = async (req, res) => {
     const allSales = await Sale.find({});
     res.json({ data: allSales });
 };
 
 
 // ====================================================================
-// C. Handlers Pembelian (Stok Otomatis Masuk)
+// C. Handlers Pembelian
 // ====================================================================
 
-exports.createPurchase = async (req, res) => {
+export const createPurchase = async (req, res) => {
     const { id_supplier, detail_pembelian } = req.body;
     let totalBiaya = 0;
     let purchaseDetails = [];
@@ -194,7 +184,7 @@ exports.createPurchase = async (req, res) => {
     // --- 1. Validasi dan Pembaruan Stok ---
     try {
         for (const item of detail_pembelian) {
-            const product = await Product.findOne({ id_produk: item.id_produk }); // Mongoose find
+            const product = await Product.findOne({ id_produk: item.id_produk });
             const kuantitas = Number(item.kuantitas);
             const hargaBeli = Number(item.harga_per_unit_beli);
 
@@ -208,12 +198,12 @@ exports.createPurchase = async (req, res) => {
 
             purchaseDetails.push({ ...item, subtotal_beli: subtotal });
 
-            // **Penambahan Stok Otomatis dan Update Harga Beli (Atomic)**
+            // Penambahan Stok Otomatis dan Update Harga Beli
             await Product.updateOne(
                 { id_produk: item.id_produk },
                 { 
-                    $inc: { stok: kuantitas }, // Menambah stok
-                    $set: { harga_beli: hargaBeli } // Update harga beli terbaru
+                    $inc: { stok: kuantitas }, 
+                    $set: { harga_beli: hargaBeli } 
                 }
             );
         }
@@ -228,7 +218,7 @@ exports.createPurchase = async (req, res) => {
             detail_pembelian: purchaseDetails
         };
 
-        const newPurchase = await Purchase.create(newPurchaseData); // Mongoose create Purchase
+        const newPurchase = await Purchase.create(newPurchaseData); 
 
         return res.status(201).json({ message: 'Pembelian berhasil dicatat dan stok diperbarui.', data: newPurchase });
 
@@ -243,8 +233,7 @@ exports.createPurchase = async (req, res) => {
 // D. Handlers Laporan
 // ====================================================================
 
-exports.getGrossProfitReport = async (req, res) => {
-    // Memanggil helper yang sudah diubah menjadi async
+export const getGrossProfitReport = async (req, res) => {
     const labaKotorData = await calculateLabaKotor(); 
     res.json({ 
         message: 'Laporan Laba Kotor Kumulatif',

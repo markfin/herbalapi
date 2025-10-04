@@ -1,17 +1,18 @@
-// src/server.js (Koreksi)
-const express = require('express');
-const cors = require('cors'); 
-// KOREKSI UTAMA: Masuk ke folder 'src' untuk menemukan salesR.js
-const salesRouter = require('./src/salesR'); 
-const app = express();
+// server.js (Diubah ke ESM)
 
-// --- Ambil fungsi koneksi dari db.js ---
-const { connectDB } = require('./src/db'); 
+import express from 'express';
+import cors from 'cors'; 
+// Import router dan db dengan ekstensi .js (Wajib di ESM)
+import salesRouter from './src/salesR.js'; 
+import { connectDB } from './src/db.js'; 
+
+const app = express();
 
 // ====================================================================
 // --- Koneksi Database (Wajib) ---
+// HARUS dipanggil agar koneksi ke MongoDB terinisiasi.
 // ====================================================================
-connectDB(); // <--- BARIS INI DITAMBAHKAN!
+connectDB(); 
 
 // ====================================================================
 // --- Middleware ---
@@ -19,5 +20,27 @@ connectDB(); // <--- BARIS INI DITAMBAHKAN!
 app.use(cors()); 
 app.use(express.json());
 
-// ... (Kode selanjutnya tidak berubah)
-module.exports = app;
+// ====================================================================
+// --- Root Route ---
+// ====================================================================
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Selamat datang di API Manajemen Inventaris Herbal! (Siap di Vercel)',
+        endpoints: {
+            Produk: 'GET /api/produk',
+            Penjualan: 'POST /api/penjualan',
+            Pembelian: 'POST /api/pembelian',
+            Laporan: 'GET /api/laporan/laba-kotor'
+        }
+    });
+});
+
+// ====================================================================
+// --- Koneksi Router API ---
+// ====================================================================
+app.use('/api', salesRouter);
+
+// ====================================================================
+// --- Eksport Aplikasi untuk Vercel (Ganti module.exports) ---
+// ====================================================================
+export default app; // Menggunakan export default untuk Vercel
